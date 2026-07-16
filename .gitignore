@@ -6,9 +6,7 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
-.venv
-
-# Logging
-game_state.jsonl
-game_events.jsonl
+# Virtual environments and tool caches
+.venv/
+.ruff_cache/
+.uv-cache/
