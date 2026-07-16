@@ -5,8 +5,7 @@ import random
 
 import pygame
 
-from circleshape import CircleShape
-from constants import (
+from ..constants import (
     CYAN,
     ORANGE,
     POWERUP_LIFETIME_SECONDS,
@@ -15,6 +14,7 @@ from constants import (
     POWERUP_SPEED,
     WHITE,
 )
+from .circle_shape import CircleShape
 
 
 class PowerUp(CircleShape):

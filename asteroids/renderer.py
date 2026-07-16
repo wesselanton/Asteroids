@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pygame
 
-from constants import (
+from .constants import (
     BACKGROUND_IMAGE,
     CYAN,
     HUD_PANEL,

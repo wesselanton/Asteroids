@@ -4,8 +4,7 @@ import random
 
 import pygame
 
-from circleshape import CircleShape
-from constants import (
+from ..constants import (
     ASTEROID_LUMPINESS,
     ASTEROID_MIN_RADIUS,
     ASTEROID_VERTEX_COUNT_MAX,
@@ -13,6 +12,7 @@ from constants import (
     LINE_WIDTH,
     WHITE,
 )
+from .circle_shape import CircleShape
 
 
 class Asteroid(CircleShape):

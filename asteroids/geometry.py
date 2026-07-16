@@ -2,7 +2,7 @@
 
 import pygame
 
-from constants import SCREEN_HEIGHT, SCREEN_WIDTH
+from .constants import SCREEN_HEIGHT, SCREEN_WIDTH
 
 _GEOMETRY_EPSILON = 1e-9
 
@@ -71,7 +71,6 @@ def circle_intersects_triangle(
         (triangle[2], triangle[0]),
     )
     return any(
-        _distance_to_segment_squared(
-            circle_center, start, end) <= radius_squared
+        _distance_to_segment_squared(circle_center, start, end) <= radius_squared
         for start, end in edges
     )

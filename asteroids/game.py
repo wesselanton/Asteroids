@@ -5,8 +5,7 @@ from enum import Enum, auto
 
 import pygame
 
-from asteroidfield import AsteroidField
-from constants import (
+from .constants import (
     ASTEROID_MIN_RADIUS,
     BOMB_BLAST_RADIUS,
     FPS,
@@ -23,11 +22,12 @@ from constants import (
     SCREEN_WIDTH,
     VIOLET,
 )
-from explosion import Explosion
-from player import Player
-from powerup import PowerUp
-from renderer import GameRenderer
-from world import SpriteWorld
+from .entities.asteroid_field import AsteroidField
+from .entities.explosion import Explosion
+from .entities.player import Player
+from .entities.power_up import PowerUp
+from .renderer import GameRenderer
+from .world import SpriteWorld
 
 
 class DestructionCause(Enum):

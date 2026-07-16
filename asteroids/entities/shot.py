@@ -2,12 +2,12 @@
 
 import pygame
 
-from circleshape import CircleShape
-from constants import (
+from ..constants import (
     SHOT_LIFETIME_SECONDS,
     SHOT_RADIUS,
     WHITE,
 )
+from .circle_shape import CircleShape
 
 
 class Shot(CircleShape):

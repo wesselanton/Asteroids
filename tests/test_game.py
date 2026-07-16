@@ -10,11 +10,8 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import pygame
 
-from asteroid import Asteroid
-from asteroidfield import AsteroidField
-from bomb import Bomb
-from circleshape import CircleShape
-from constants import (
+import asteroids.renderer as renderer_module
+from asteroids.constants import (
     ASTEROID_MIN_RADIUS,
     BACKGROUND_IMAGE,
     BOMB_FUSE_SECONDS,
@@ -29,15 +26,19 @@ from constants import (
     SCREEN_WIDTH,
     SHIELD_HIT_GRACE_SECONDS,
 )
-from explosion import Explosion
-from geometry import circle_intersects_triangle, wrap_position, wrapped_delta
-from main import DestructionCause, Game
-from player import Player
-from powerup import PowerUp
-from renderer import GameRenderer
-from shot import Shot
-from weapons import WEAPON_RAPID, WEAPON_SPREAD
-from world import SpriteWorld
+from asteroids.entities.asteroid import Asteroid
+from asteroids.entities.asteroid_field import AsteroidField
+from asteroids.entities.bomb import Bomb
+from asteroids.entities.circle_shape import CircleShape
+from asteroids.entities.explosion import Explosion
+from asteroids.entities.player import Player
+from asteroids.entities.power_up import PowerUp
+from asteroids.entities.shot import Shot
+from asteroids.game import DestructionCause, Game
+from asteroids.geometry import circle_intersects_triangle, wrap_position, wrapped_delta
+from asteroids.renderer import GameRenderer
+from asteroids.weapons import WEAPON_RAPID, WEAPON_SPREAD
+from asteroids.world import SpriteWorld
 
 
 class DummyCircle(CircleShape):
@@ -191,14 +192,20 @@ class EntityTests(unittest.TestCase):
 
     def test_forward_input_accelerates_instead_of_teleporting(self):
         player = Player(100, 100)
-        with patch("player.pygame.key.get_pressed", return_value=FakeKeys(pygame.K_w)):
+        with patch(
+            "asteroids.entities.player.pygame.key.get_pressed",
+            return_value=FakeKeys(pygame.K_w),
+        ):
             player.update(0.25)
         self.assertGreater(player.velocity.length(), 0)
         self.assertGreater(player.position.y, 100)
 
     def test_player_keeps_inertia_with_drag_and_a_speed_limit(self):
         player = Player(100, 100)
-        with patch("player.pygame.key.get_pressed", return_value=FakeKeys(pygame.K_w)):
+        with patch(
+            "asteroids.entities.player.pygame.key.get_pressed",
+            return_value=FakeKeys(pygame.K_w),
+        ):
             for _ in range(100):
                 player.update(0.1)
 
@@ -206,7 +213,10 @@ class EntityTests(unittest.TestCase):
         self.assertLessEqual(thrust_speed, PLAYER_MAX_SPEED)
         previous_position = player.position.copy()
 
-        with patch("player.pygame.key.get_pressed", return_value=FakeKeys()):
+        with patch(
+            "asteroids.entities.player.pygame.key.get_pressed",
+            return_value=FakeKeys(),
+        ):
             player.update(0.1)
 
         self.assertLess(player.velocity.length(), thrust_speed)
@@ -219,7 +229,10 @@ class EntityTests(unittest.TestCase):
         normal = Player(100, 100)
         boosted = Player(100, 100)
         boosted.apply_powerup(POWERUP_SPEED)
-        with patch("player.pygame.key.get_pressed", return_value=FakeKeys(pygame.K_w)):
+        with patch(
+            "asteroids.entities.player.pygame.key.get_pressed",
+            return_value=FakeKeys(pygame.K_w),
+        ):
             normal.update(0.25)
             boosted.update(0.25)
         self.assertGreater(boosted.velocity.length(), normal.velocity.length())
@@ -359,21 +372,24 @@ class GameFlowTests(unittest.TestCase):
     def test_background_is_loaded_and_scaled_to_screen_size(self):
         source = pygame.Surface((16, 9))
         source.fill((20, 40, 60))
-        with patch("renderer.pygame.image.load", return_value=source) as load:
+        with patch("asteroids.renderer.pygame.image.load", return_value=source) as load:
             renderer = GameRenderer(self.game.screen)
         load.assert_called_once()
         self.assertEqual(renderer.background.get_size(), (SCREEN_WIDTH, SCREEN_HEIGHT))
         self.assertEqual(renderer.background.get_at((0, 0))[:3], (20, 40, 60))
 
     def test_shipped_background_asset_is_loadable(self):
-        asset_path = Path(__file__).resolve().parents[1] / BACKGROUND_IMAGE
+        asset_path = Path(renderer_module.__file__).resolve().parent / BACKGROUND_IMAGE
         self.assertTrue(asset_path.is_file())
         image = pygame.image.load(asset_path)
         self.assertGreater(image.get_width(), 0)
         self.assertGreater(image.get_height(), 0)
 
     def test_background_falls_back_to_a_plain_surface(self):
-        with patch("renderer.pygame.image.load", side_effect=pygame.error("missing")):
+        with patch(
+            "asteroids.renderer.pygame.image.load",
+            side_effect=pygame.error("missing"),
+        ):
             renderer = GameRenderer(self.game.screen)
         self.assertEqual(renderer.background.get_size(), (SCREEN_WIDTH, SCREEN_HEIGHT))
         self.assertEqual(renderer.background.get_at((0, 0))[:3], (2, 5, 14))
@@ -414,7 +430,7 @@ class GameFlowTests(unittest.TestCase):
                 self.game.new_session()
                 self.game.asteroid_field.kill()
                 asteroid = Asteroid(100, 100, 40, world=self.game.world)
-                with patch("main.random.random", return_value=0.0):
+                with patch("asteroids.game.random.random", return_value=0.0):
                     self.game.destroy_asteroid(asteroid, cause)
                 self.assertEqual(self.game.score, score)
                 self.assertEqual(len(self.game.world.asteroids), asteroids)

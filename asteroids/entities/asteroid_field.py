@@ -4,8 +4,7 @@ import random
 
 import pygame
 
-from asteroid import Asteroid
-from constants import (
+from ..constants import (
     ASTEROID_KINDS,
     ASTEROID_LUMPINESS,
     ASTEROID_MAX_ACTIVE,
@@ -15,7 +14,8 @@ from constants import (
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
 )
-from geometry import wrapped_delta
+from ..geometry import wrapped_delta
+from .asteroid import Asteroid
 
 
 class AsteroidField(pygame.sprite.Sprite):

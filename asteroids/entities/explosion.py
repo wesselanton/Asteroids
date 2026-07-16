@@ -4,13 +4,13 @@ import random
 
 import pygame
 
-from circleshape import CircleShape
-from constants import (
+from ..constants import (
     ASTEROID_MAX_RADIUS,
     EXPLOSION_LIFETIME_SECONDS,
     EXPLOSION_PARTICLES_PER_RADIUS,
     WHITE,
 )
+from .circle_shape import CircleShape
 
 
 class _Fragment:

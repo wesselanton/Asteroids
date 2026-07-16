@@ -1,6 +1,6 @@
 """Weapon names and firing settings."""
 
-from constants import (
+from .constants import (
     CYAN,
     SHOT_LIFETIME_SECONDS,
     SHOT_RADIUS,

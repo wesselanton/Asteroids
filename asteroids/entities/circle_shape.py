@@ -2,8 +2,8 @@
 
 import pygame
 
-from constants import SCREEN_HEIGHT, SCREEN_WIDTH
-from geometry import wrap_position, wrapped_delta
+from ..constants import SCREEN_HEIGHT, SCREEN_WIDTH
+from ..geometry import wrap_position, wrapped_delta
 
 
 class CircleShape(pygame.sprite.Sprite):

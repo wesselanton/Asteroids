@@ -4,9 +4,7 @@ import math
 
 import pygame
 
-from bomb import Bomb
-from circleshape import CircleShape
-from constants import (
+from ..constants import (
     BOMB_COOLDOWN_SECONDS,
     BOMB_RADIUS,
     CYAN,
@@ -31,14 +29,16 @@ from constants import (
     SPEED_POWERUP_MULTIPLIER,
     WHITE,
 )
-from geometry import circle_intersects_triangle, wrapped_delta
-from shot import Shot
-from weapons import (
+from ..geometry import circle_intersects_triangle, wrapped_delta
+from ..weapons import (
     WEAPON_BLASTER,
     WEAPON_RAPID,
     WEAPON_SPECS,
     WEAPON_SPREAD,
 )
+from .bomb import Bomb
+from .circle_shape import CircleShape
+from .shot import Shot
 
 
 class Player(CircleShape):

@@ -7,7 +7,7 @@ An Asteroids-style game built with Pygame.
 Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).
 
 ```powershell
-uv run python main.py
+uv run python -m asteroids
 ```
 
 ## Controls

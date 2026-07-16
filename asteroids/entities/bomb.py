@@ -4,14 +4,14 @@ import math
 
 import pygame
 
-from circleshape import CircleShape
-from constants import (
+from ..constants import (
     BOMB_FUSE_SECONDS,
     BOMB_RADIUS,
     ORANGE,
     RED,
     WHITE,
 )
+from .circle_shape import CircleShape
 
 
 class Bomb(CircleShape):
