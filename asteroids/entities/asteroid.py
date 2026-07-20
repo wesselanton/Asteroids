@@ -5,6 +5,7 @@ import random
 import pygame
 
 from ..constants import (
+    ASTEROID_KINDS,
     ASTEROID_LUMPINESS,
     ASTEROID_MIN_RADIUS,
     ASTEROID_VERTEX_COUNT_MAX,
@@ -33,6 +34,17 @@ class Asteroid(CircleShape):
         self._destroyed = False
         if self.world is not None:
             self.world.add_asteroid(self)
+
+    @property
+    def kind(self):
+        """Return the configured size class used for scoring."""
+        return max(
+            1,
+            min(
+                ASTEROID_KINDS,
+                round(self.radius / ASTEROID_MIN_RADIUS),
+            ),
+        )
 
     def _make_vertices(self):
         """Generate local-space vertices once so the outline never jitters."""

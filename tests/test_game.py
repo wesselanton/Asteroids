@@ -3,7 +3,7 @@
 import os
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -12,9 +12,14 @@ import pygame
 
 import asteroids.renderer as renderer_module
 from asteroids.constants import (
+    ASTEROID_KINDS,
+    ASTEROID_MAX_ACTIVE,
     ASTEROID_MIN_RADIUS,
+    ASTEROID_SPAWN_RATE_SECONDS,
     BACKGROUND_IMAGE,
     BOMB_FUSE_SECONDS,
+    MAX_FRAME_CATCHUP_SECONDS,
+    MAX_SIMULATION_STEP_SECONDS,
     PLAYER_MAX_SPEED,
     PLAYER_RESPAWN_DELAY_SECONDS,
     PLAYER_RESPAWN_SAFE_RADIUS,
@@ -22,6 +27,7 @@ from asteroids.constants import (
     POWERUP_SHIELD_SECONDS,
     POWERUP_SPEED,
     POWERUP_SPEED_SECONDS,
+    SCORE_BY_ASTEROID_KIND,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     SHIELD_HIT_GRACE_SECONDS,
@@ -147,6 +153,30 @@ class EntityTests(unittest.TestCase):
         self.assertEqual(asteroid.split(), [])
         self.assertEqual(len(self.world.asteroids), 0)
 
+    def test_asteroid_kind_is_derived_from_the_configured_size_range(self):
+        self.assertEqual(
+            set(SCORE_BY_ASTEROID_KIND),
+            set(range(1, ASTEROID_KINDS + 1)),
+        )
+        for kind in range(1, ASTEROID_KINDS + 1):
+            with self.subTest(kind=kind):
+                asteroid = Asteroid(
+                    100,
+                    100,
+                    ASTEROID_MIN_RADIUS * kind,
+                    world=self.world,
+                )
+                self.assertEqual(asteroid.kind, kind)
+                asteroid.kill()
+
+        oversized = Asteroid(
+            100,
+            100,
+            ASTEROID_MIN_RADIUS * (ASTEROID_KINDS + 1),
+            world=self.world,
+        )
+        self.assertEqual(oversized.kind, ASTEROID_KINDS)
+
     def test_lumpy_outline_is_stable_between_frames(self):
         asteroid = Asteroid(100, 100, 40, world=self.world)
         original = [vertex.copy() for vertex in asteroid.vertices]
@@ -189,6 +219,11 @@ class EntityTests(unittest.TestCase):
         player.apply_powerup(POWERUP_SPEED)
         self.assertEqual(player.shield_timer, POWERUP_SHIELD_SECONDS)
         self.assertEqual(player.speed_timer, POWERUP_SPEED_SECONDS)
+
+    def test_unknown_powerup_kind_is_rejected(self):
+        player = Player(100, 100)
+        with self.assertRaisesRegex(ValueError, "Unknown power-up kind"):
+            player.apply_powerup("typo")
 
     def test_forward_input_accelerates_instead_of_teleporting(self):
         player = Player(100, 100)
@@ -259,6 +294,16 @@ class EntityTests(unittest.TestCase):
         self.assertFalse(powerup.alive())
         self.assertFalse(explosion.alive())
 
+    def test_world_clear_removes_owned_non_updatable_sprites(self):
+        render_only = pygame.sprite.Sprite()
+        self.world.register(render_only, self.world.drawable)
+
+        self.assertNotIn(render_only, self.world.updatable)
+        self.assertTrue(render_only.alive())
+        self.world.clear()
+        self.assertFalse(render_only.alive())
+        self.assertNotIn(render_only, self.world.drawable)
+
     def test_bomb_is_dropped_behind_ship_with_partial_momentum(self):
         player = Player(100, 100)
         player.velocity.update(100, 0)
@@ -290,6 +335,20 @@ class EntityTests(unittest.TestCase):
                 position.x in (0, SCREEN_WIDTH) or position.y in (0, SCREEN_HEIGHT)
             )
 
+    def test_asteroid_field_waits_for_interval_and_respects_active_cap(self):
+        field = AsteroidField(self.world)
+
+        field.update(ASTEROID_SPAWN_RATE_SECONDS - 0.01)
+        self.assertEqual(len(self.world.asteroids), 0)
+        field.update(0.02)
+        self.assertEqual(len(self.world.asteroids), 1)
+
+        while len(self.world.asteroids) < ASTEROID_MAX_ACTIVE:
+            Asteroid(100, 100, ASTEROID_MIN_RADIUS, world=self.world)
+        field.spawn_timer = ASTEROID_SPAWN_RATE_SECONDS
+        field.update(0.0)
+        self.assertEqual(len(self.world.asteroids), ASTEROID_MAX_ACTIVE)
+
 
 class GameFlowTests(unittest.TestCase):
     def setUp(self):
@@ -301,14 +360,23 @@ class GameFlowTests(unittest.TestCase):
     def tearDown(self):
         self.game.world.clear()
 
-    def test_destroying_asteroid_awards_stage_score_once(self):
-        asteroid = Asteroid(100, 100, 60, world=self.game.world)
-        self.game.destroy_asteroid(asteroid, DestructionCause.BOMB)
-        self.game.destroy_asteroid(asteroid, DestructionCause.BOMB)
-        self.assertEqual(self.game.score, 20)
-        self.assertEqual(len(self.game.world.explosions), 1)
-        explosion = self.game.world.explosions.sprites()[0]
-        self.assertEqual(explosion.position, (100, 100))
+    def test_destroying_asteroid_awards_configured_score_once(self):
+        for kind, expected_score in SCORE_BY_ASTEROID_KIND.items():
+            with self.subTest(kind=kind):
+                self.game.new_session()
+                self.game.asteroid_field.kill()
+                asteroid = Asteroid(
+                    100,
+                    100,
+                    ASTEROID_MIN_RADIUS * kind,
+                    world=self.game.world,
+                )
+                self.game.destroy_asteroid(asteroid, DestructionCause.BOMB)
+                self.game.destroy_asteroid(asteroid, DestructionCause.BOMB)
+                self.assertEqual(self.game.score, expected_score)
+                self.assertEqual(len(self.game.world.explosions), 1)
+                explosion = self.game.world.explosions.sprites()[0]
+                self.assertEqual(explosion.position, (100, 100))
 
     def test_shield_absorbs_collision_without_losing_life(self):
         self.game.player.invulnerability_timer = 0
@@ -355,6 +423,19 @@ class GameFlowTests(unittest.TestCase):
         self.assertFalse(asteroid.alive())
         self.assertEqual(self.game.score, 20)
         self.assertEqual(len(self.game.world.bombs), 0)
+
+    def test_large_frame_uses_bounded_catchup_steps(self):
+        with patch.object(self.game, "_update_step") as update_step:
+            self.game.update(MAX_FRAME_CATCHUP_SECONDS * 2)
+
+        step_durations = [call.args[0] for call in update_step.call_args_list]
+        self.assertGreater(len(step_durations), 1)
+        self.assertLessEqual(max(step_durations), MAX_SIMULATION_STEP_SECONDS)
+        self.assertAlmostEqual(sum(step_durations), MAX_FRAME_CATCHUP_SECONDS)
+
+        with patch.object(self.game, "_update_step") as update_step:
+            self.game.update(-1)
+        update_step.assert_called_once_with(0.0)
 
     def test_same_volley_cannot_chain_hit_new_split_children(self):
         Asteroid(200, 200, 40, world=self.game.world)
@@ -451,7 +532,7 @@ class GameFlowTests(unittest.TestCase):
         Shot(100, 100, (0, 1), 100, world=self.game.world)
         Bomb(100, 100, world=self.game.world)
         PowerUp(100, 100, POWERUP_SPEED, world=self.game.world)
-        old_sprites = self.game.world.updatable.sprites()
+        old_sprites = self.game.world.all_sprites.sprites()
 
         self.game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_r))
         self.assertFalse(self.game.game_over)
@@ -467,6 +548,39 @@ class GameFlowTests(unittest.TestCase):
         ):
             self.assertEqual(len(group), 0)
         self.assertEqual(len(self.game.world.updatable), 2)
+        self.assertEqual(len(self.game.world.all_sprites), 2)
+
+    def test_quit_event_stops_before_another_update_or_draw(self):
+        events = [
+            pygame.event.Event(pygame.QUIT),
+            pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b),
+        ]
+        with (
+            patch("asteroids.game.pygame.event.get", return_value=events),
+            patch("asteroids.game.pygame.quit") as quit_pygame,
+            patch.object(self.game, "update") as update,
+            patch.object(self.game, "draw") as draw,
+        ):
+            self.game.run()
+
+        update.assert_not_called()
+        draw.assert_not_called()
+        self.assertEqual(len(self.game.world.bombs), 0)
+        quit_pygame.assert_called_once_with()
+
+    def test_run_quits_pygame_when_a_frame_raises(self):
+        clock = Mock()
+        clock.tick.return_value = 16
+        with (
+            patch("asteroids.game.pygame.event.get", return_value=[]),
+            patch("asteroids.game.pygame.quit") as quit_pygame,
+            patch.object(self.game, "clock", clock),
+            patch.object(self.game, "update", side_effect=RuntimeError("boom")),
+            self.assertRaisesRegex(RuntimeError, "boom"),
+        ):
+            self.game.run()
+
+        quit_pygame.assert_called_once_with()
 
 
 def tearDownModule():

@@ -2,14 +2,16 @@
 
 import random
 from enum import Enum, auto
+from math import ceil
 
 import pygame
 
 from .constants import (
-    ASTEROID_MIN_RADIUS,
     BOMB_BLAST_RADIUS,
     FPS,
     GAME_TITLE,
+    MAX_FRAME_CATCHUP_SECONDS,
+    MAX_SIMULATION_STEP_SECONDS,
     ORANGE,
     PLAYER_RESPAWN_SAFE_RADIUS,
     PLAYER_STARTING_LIVES,
@@ -81,7 +83,21 @@ class Game:
             self.player.drop_bomb()
 
     def update(self, dt):
-        dt = min(max(dt, 0.0), 0.05)
+        """Advance elapsed time in bounded steps up to the catch-up budget."""
+        elapsed = min(
+            max(float(dt), 0.0),
+            MAX_FRAME_CATCHUP_SECONDS,
+        )
+        step_count = max(
+            1,
+            ceil(elapsed / MAX_SIMULATION_STEP_SECONDS),
+        )
+        step_dt = elapsed / step_count
+        for _ in range(step_count):
+            self._update_step(step_dt)
+
+    def _update_step(self, dt):
+        """Advance the simulation by one bounded time step."""
         if self.game_over:
             self.world.explosions.update(dt)
             return
@@ -175,6 +191,7 @@ class Game:
 
         position = asteroid.position.copy()
         radius = asteroid.radius
+        kind = asteroid.kind
         Explosion(
             position.x,
             position.y,
@@ -189,11 +206,7 @@ class Game:
             asteroid.kill()
 
         if cause in (DestructionCause.SHOT, DestructionCause.BOMB):
-            asteroid_kind = max(
-                1,
-                min(3, round(radius / ASTEROID_MIN_RADIUS)),
-            )
-            self.score += SCORE_BY_ASTEROID_KIND[asteroid_kind]
+            self.score += SCORE_BY_ASTEROID_KIND[kind]
 
         if cause is DestructionCause.SHOT and random.random() < POWERUP_DROP_CHANCE:
             powerup_kind = random.choice((POWERUP_SHIELD, POWERUP_SPEED))
@@ -223,15 +236,22 @@ class Game:
         )
 
     def run(self):
-        while self.running:
-            for event in pygame.event.get():
-                self.handle_event(event)
+        try:
+            while self.running:
+                for event in pygame.event.get():
+                    self.handle_event(event)
+                    if not self.running:
+                        break
 
-            dt = self.clock.tick(FPS) / 1000
-            self.update(dt)
-            self.draw()
+                if not self.running:
+                    break
 
-        pygame.quit()
+                dt = self.clock.tick(FPS) / 1000
+                self.update(dt)
+                self.draw()
+
+        finally:
+            pygame.quit()
 
 
 def main():

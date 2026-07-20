@@ -20,6 +20,7 @@ from ..constants import (
     PLAYER_TURN_SPEED,
     POWERUP_SHIELD,
     POWERUP_SHIELD_SECONDS,
+    POWERUP_SPEED,
     POWERUP_SPEED_SECONDS,
     RED,
     SCREEN_HEIGHT,
@@ -274,8 +275,10 @@ class Player(CircleShape):
     def apply_powerup(self, kind):
         if kind == POWERUP_SHIELD:
             self.shield_timer = POWERUP_SHIELD_SECONDS
-        else:
+        elif kind == POWERUP_SPEED:
             self.speed_timer = POWERUP_SPEED_SECONDS
+        else:
+            raise ValueError(f"Unknown power-up kind: {kind!r}")
 
     def consume_shield(self):
         """Consume one active shield and grant time to clear the collision."""
